@@ -1,0 +1,7 @@
+[package]
+name = "hii_database"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+uefi = { version = "0.34.0", features = ["panic_handler", "alloc", "global_allocator"] }
