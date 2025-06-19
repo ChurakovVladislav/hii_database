@@ -1,5 +1,5 @@
 use uefi::boot::ScopedProtocol;
-use uefi::{CStr8, Guid};
+use uefi::{CStr8, Guid, Status, Result};
 use uefi::{print, println};
 
 use crate::*;
@@ -15,14 +15,14 @@ fn print_hex_dump(data: &[u8]) {
 }
 
 // Print all packages in the system
-pub fn show_hii(table: &ScopedProtocol<HiiDatabaseProtocol>) {
+pub fn show_hii(table: &ScopedProtocol<HiiDatabaseProtocol>) -> Result {
     table.get_hii_package_lists().map(|list_pack| {
         for (j, package_list) in list_pack.iter().enumerate() {
             println!(
                 "PackageList[{}]: GUID={}; size=0x{:02X}",
                 j,
                 package_list.header().package_list_guid,
-                package_list.header().horizontal_resolution
+                package_list.header().horizontal_resolution,
             );
 
             for (i, package) in package_list.into_iter().enumerate() {
@@ -30,15 +30,17 @@ pub fn show_hii(table: &ScopedProtocol<HiiDatabaseProtocol>) {
                     "        Package[{}]: type={}; size=0x{:02X}",
                     i,
                     package.package_type(),
-                    package.len()
+                    package.len(),
                 );
             }
         }
+        return Status::SUCCESS.to_result();
     });
+    Status::NOT_FOUND.to_result()
 }
 
 // Print all string for package
-pub fn hii_strings_uni(table: &ScopedProtocol<HiiDatabaseProtocol>, package_guid: Guid) {
+pub fn hii_strings_uni(table: &ScopedProtocol<HiiDatabaseProtocol>, package_guid: Guid) -> Result {
     if let Some(package_string) = table.get_package::<HiiStringPackageHdr>(package_guid) {
         for (index, sph) in package_string.iter().enumerate() {
             println!(" {})'{}' string package", index + 1, sph.str_language());
@@ -49,10 +51,12 @@ pub fn hii_strings_uni(table: &ScopedProtocol<HiiDatabaseProtocol>, package_guid
                     .map(|string| println!("   ID {} = {:?}", id, string));
             }
         }
+        return Status::SUCCESS.to_result();
     }
+    Status::NOT_FOUND.to_result()
 }
 
-pub fn show_dump_vfr_form(table: &ScopedProtocol<HiiDatabaseProtocol>, package_guid: Guid) {
+pub fn show_dump_vfr_form(table: &ScopedProtocol<HiiDatabaseProtocol>, package_guid: Guid) -> Result {
     if let Some(package_form) = table.get_package::<HiiFormPackageHdr>(package_guid) {
         println!("Form package Guid: {}\n", package_guid);
 
@@ -63,5 +67,7 @@ pub fn show_dump_vfr_form(table: &ScopedProtocol<HiiDatabaseProtocol>, package_g
             println!("// PACKAGE DATA");
             print_hex_dump(fph.as_data());
         }
+        return Status::SUCCESS.to_result();
     }
+    Status::NOT_FOUND.to_result()
 }
