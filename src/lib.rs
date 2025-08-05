@@ -170,6 +170,38 @@ impl HiiDatabaseProtocol {
         None
     }
 
+    /// Get Hii packeges for handle
+    pub fn get_hii_package(&self, handle: Handle) -> Option<UndefineHiiPackageListHeader>  {
+        let mut package_size: usize = 0;
+        let mut package_list: EfiHiiPackageListHeader = Default::default();
+
+        // Find out the size of the table
+        let status = unsafe {
+            (self.export_package_lists)(self, handle.as_ptr(), &mut package_size, &mut package_list)
+        };
+        if status != Status::BUFFER_TOO_SMALL {
+            return None;
+        }
+
+        // Allocate memory for Hii packages
+        let package_list =
+            boot::allocate_pool(MemoryType::BOOT_SERVICES_CODE, package_size).ok()?;
+
+        let status = unsafe {
+            let pl = &mut *(package_list.as_ptr() as *mut EfiHiiPackageListHeader);
+            (self.export_package_lists)(self, handle.as_ptr(), &mut package_size, pl)
+        };
+
+        if status.is_success() {
+            let hii_package_list = unsafe {
+                UndefineHiiPackageListIter::new(package_list.as_ptr(), package_size as u32)
+            };
+
+            return hii_package_list.into_iter().next();
+        }
+        None
+    }
+
     /// Get vector packages for list
     pub fn get_package<T: PackageHeader>(&self, package_list_guid: Guid) -> Option<Vec<T>> {
         self.get_hii_handles(package_list_guid).map(|handles| {
