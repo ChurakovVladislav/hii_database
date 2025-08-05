@@ -116,7 +116,7 @@ impl HiiDatabaseProtocol {
         }
         // Allocate memory for Hii packages
         let package_list =
-            boot::allocate_pool(MemoryType::BOOT_SERVICES_CODE, package_size).ok()?;
+            boot::allocate_pool(MemoryType::BOOT_SERVICES_DATA, package_size).ok()?;
 
         let status = unsafe {
             let pl = &mut *(package_list.as_ptr() as *mut EfiHiiPackageListHeader);
@@ -151,7 +151,7 @@ impl HiiDatabaseProtocol {
         }
         // Allocate memory for Hii packages
         let package_list =
-            boot::allocate_pool(MemoryType::BOOT_SERVICES_CODE, package_size).ok()?;
+            boot::allocate_pool(MemoryType::BOOT_SERVICES_DATA, package_size).ok()?;
 
         let status = unsafe {
             let pl = &mut *(package_list.as_ptr() as *mut EfiHiiPackageListHeader);
