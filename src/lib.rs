@@ -1,21 +1,20 @@
 #![no_std]
-use uefi::Guid;
-use uefi::boot::MemoryType;
-use uefi::prelude::*;
-use uefi::proto::unsafe_protocol;
+use uefi::{
+    boot::MemoryType,
+    prelude::*,
+    proto::unsafe_protocol,
+    {Guid, Result},
+};
 
 extern crate alloc;
-use alloc::slice;
-use alloc::vec::Vec;
+use alloc::{slice, vec::Vec};
 
-use core::ffi::c_void;
-use core::mem;
-use core::ptr;
+use core::{ffi::c_void, mem, ptr};
 
 use crate::package_header::*;
 
-pub mod package_header;
 pub mod base;
+pub mod package_header;
 
 /// EFI_HII_DATABASE_NOTIFY_TYPE.
 type EfiHiiDatabaseNotifyType = usize;
@@ -63,7 +62,7 @@ pub struct HiiDatabaseProtocol {
         package_type: u8,
         package_guid: *const Guid,
         handle_buffer_length: *mut usize,
-        handle: *mut Handle,
+        handle: *mut *mut c_void,
     ) -> Status,
     export_package_lists: unsafe extern "efiapi" fn(
         *const Self,
@@ -137,7 +136,7 @@ impl HiiDatabaseProtocol {
     }
 
     /// Get list packages HII
-    fn get_hii_handles(&self, package_list_guid: Guid) -> Option<UndefineHiiPackageListHeader> {
+    pub fn get_hii_handles(&self, package_list_guid: Guid) -> Option<UndefineHiiPackageListHeader> {
         let mut package_size: usize = 0;
         let mut package_list: EfiHiiPackageListHeader = Default::default();
         let handle: *mut c_void = ptr::null_mut();
@@ -171,7 +170,7 @@ impl HiiDatabaseProtocol {
     }
 
     /// Get Hii packeges for handle
-    pub fn get_hii_package(&self, handle: Handle) -> Option<UndefineHiiPackageListHeader>  {
+    pub fn get_hii_package(&self, handle: Handle) -> Option<UndefineHiiPackageListHeader> {
         let mut package_size: usize = 0;
         let mut package_list: EfiHiiPackageListHeader = Default::default();
 
@@ -219,7 +218,7 @@ impl HiiDatabaseProtocol {
         package_list_guid: Guid,
         device_hadle: Option<Handle>,
         packegs: Vec<HiiPackage>,
-    ) -> (Status, Option<Handle>) {
+    ) -> Result<Handle> {
         let size_packegs: usize = packegs.iter().map(|pack| pack.size()).sum();
 
         // Fill in the GUIDE and Length of the Package List Header
@@ -252,15 +251,13 @@ impl HiiDatabaseProtocol {
             };
             let mut ptr_handle: *mut c_void = ptr::null_mut();
 
-            let status = (self.new_package_list)(
+            (self.new_package_list)(
                 self,
                 list_pack.as_ptr() as *const EfiHiiPackageListHeader,
                 driver_handle,
                 &mut ptr_handle,
-            );
-            let handle = Handle::from_ptr(ptr_handle);
-
-            (status, handle)
+            )
+            .to_result_with_val(|| Handle::from_ptr(ptr_handle).unwrap())
         }
     }
 
@@ -269,4 +266,3 @@ impl HiiDatabaseProtocol {
         unsafe { (self.remove_package_list)(self, hii_handle) }
     }
 }
- 
