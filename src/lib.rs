@@ -3,11 +3,12 @@ use uefi::{
     boot::MemoryType,
     prelude::*,
     proto::unsafe_protocol,
-    {Guid, Result},
+    runtime::VariableVendor,
+    {CStr8, Guid, Result},
 };
 
 extern crate alloc;
-use alloc::{slice, vec::Vec};
+use alloc::{slice, string::String, vec::Vec};
 
 use core::{ffi::c_void, mem, ptr};
 
@@ -264,5 +265,25 @@ impl HiiDatabaseProtocol {
     /// Removes a package list from the HII database.
     pub fn remove_packages(&self, hii_handle: Handle) -> Status {
         unsafe { (self.remove_package_list)(self, hii_handle) }
+    }
+
+    /// Retrieves a string from a string packag
+    pub fn hii_get_string(&self, hii_handle: Handle, message: u16) -> Option<String> {
+        // Get the current platform language setting
+        let (platform_lang, _) = uefi::runtime::get_variable_boxed (
+            cstr16!("PlatformLang"),
+            &VariableVendor::GLOBAL_VARIABLE,
+        )
+        .ok()?;
+        let lang = CStr8::from_bytes_with_nul(&platform_lang).ok()?;
+
+        self
+            // Get all packets with strings
+            .get_hii_package(hii_handle)?
+            .into_iter()
+            .filter(|head| head.header.get_type() == Ok(HiiStringPackageHdr::PACKAGE_TYPE))
+            .map(|t| HiiStringPackageHdr::from_undef(&t))
+            .filter_map(|str| str.get_string(message, lang))
+            .next() // Retrieve the string from the string package
     }
 }
